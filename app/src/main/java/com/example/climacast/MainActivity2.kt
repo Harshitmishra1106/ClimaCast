@@ -2,18 +2,14 @@ package com.example.climacast
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.TextView
-import androidx.activity.enableEdgeToEdge
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import com.bumptech.glide.Glide
+import com.example.climacast.dataModels.WeatherModel
 import com.example.climacast.databinding.ActivityMain2Binding
-import com.example.climacast.databinding.ActivityMainBinding
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.example.climacast.interfaceApi.WeatherService
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -33,27 +29,46 @@ class MainActivity2 : AppCompatActivity() {
             .build()
             .create(WeatherService::class.java)
 
-        GlobalScope.launch(Dispatchers.IO) {
-            val weatherData = weatherService.getWeather(cityName.toString(), apiKey)
-            withContext(Dispatchers.Main) {
-                updateUI(weatherData)
+        binding.textViewCity.text = cityName.toString()
+
+        val response = weatherService.getWeather(cityName.toString(), apiKey, "metric")
+        response.enqueue(object: Callback<WeatherModel> {
+            override fun onResponse(call: Call<WeatherModel>, response: Response<WeatherModel>) {
+                val responseBody = response.body()
+                if(response.isSuccessful && responseBody != null){
+                    val temp = responseBody.main.temp
+                    val humidity = responseBody.main.humidity
+                    val windSpeed  = responseBody.wind.speed
+                    val sunrise  = responseBody.sys.sunrise
+                    val sunset  = responseBody.sys.sunset
+                    val seaLevel  = responseBody.main.pressure
+                    val tempMax = responseBody.main.temp_max
+                    val tempMin = responseBody.main.temp_min
+                    val condition = responseBody.weather.firstOrNull()?.main?: "unknown"
+
+                    binding.textViewTemperature.text = "$temp°C"
+                    binding.humidity.text = "$humidity°C"
+                    binding.wind.text = "$windSpeed m/s"
+                    binding.sunrise.text = "$sunrise"
+                    binding.sunset.text = "$sunset"
+                    binding.sea.text = "$seaLevel hPa"
+                    binding.maxTemp.text = "$tempMax°C"
+                    binding.minTemp.text = "$tempMin°C"
+                    binding.condition.text = "$condition"
+                }
             }
-        }
+
+            override fun onFailure(call: Call<WeatherModel>, t: Throwable) {
+                Toast.makeText(this@MainActivity2, "Unable to get Information", Toast.LENGTH_SHORT).show()
+            }
+
+        })
+
 
         binding.btn.setOnClickListener{
             val intent = Intent(this, MainActivity::class.java)
             startActivity(intent)
         }
-    }
-
-    private fun updateUI(weatherData: WeatherData) {
-        binding.textViewCity.text = weatherData.name
-        binding.textViewTemperature.text =
-            "${weatherData.main.temp.toInt()}°C"
-        val iconUrl = "https://openweathermap.org/img/w/${weatherData.weather[0].icon}.png"
-        Glide.with(this)
-            .load(iconUrl)
-            .into(binding.imageViewWeatherIcon)
     }
 
 }
